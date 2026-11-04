@@ -1,7 +1,9 @@
 # Log File Analysis Using Regular Expressions and DFA
 
 **Course:** Theory of Computations (24CS52)  
-**Case Study:** SET-E — Log File Analysis Engine
+**Case Study:** SET-E — Log File Analysis Engine  
+**Live Application URL:** [https://toc-project-ruiv.vercel.app/](https://toc-project-ruiv.vercel.app/)  
+**GitHub Repository:** [https://github.com/yuvanharshaj/TOC-PROJECT](https://github.com/yuvanharshaj/TOC-PROJECT)
 
 ---
 
@@ -243,11 +245,20 @@ To maintain academic rigor, the implementation documents the following specific 
 
 ---
 
-## 12. Deployment Instructions (Render)
+## 12. Deployment Instructions
 
-The application is pre-configured for deployment as a single service on [Render](https://render.com) using the included `Procfile` and `render.yaml`.
+The application is deployed live and configured for multiple hosting environments:
 
-### Steps to Deploy:
+### Live Production Deployment (Vercel)
+The dashboard is deployed on Vercel at:  
+👉 **[https://toc-project-ruiv.vercel.app/](https://toc-project-ruiv.vercel.app/)**
+
+The deployment uses [`vercel.json`](vercel.json) to route all requests directly to `src/web_api.py` via `@vercel/python`, bundling `web/` and `data/` assets with zero-config serverless execution.
+
+### Container Deployment (Render)
+The application is also pre-configured for deployment as a single service on [Render](https://render.com) using the included `Procfile` and `render.yaml`.
+
+#### Steps to Deploy on Render:
 1. Push your repository to GitHub.
 2. Sign in to [Render](https://render.com) and click **"New +" &rarr; "Web Service"**.
 3. Connect your GitHub repository.

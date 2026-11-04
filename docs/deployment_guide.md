@@ -1,6 +1,8 @@
 # TOC SET-E Case Study: Deployment & Hosting Guide
 **Course Code:** 24CS52 — Theory of Computations (2026–2027)  
-**Project:** Log File Analysis Using Regular Expressions and DFA
+**Project:** Log File Analysis Using Regular Expressions and DFA  
+**Live Application URL:** [https://toc-project-ruiv.vercel.app/](https://toc-project-ruiv.vercel.app/)  
+**GitHub Repository:** [https://github.com/yuvanharshaj/TOC-PROJECT](https://github.com/yuvanharshaj/TOC-PROJECT)
 
 ---
 
@@ -69,23 +71,39 @@ The application is pre-configured with defensive settings in `src/web_api.py`:
 
 ---
 
-## 4. Step-by-Step Deployment Guide (Render)
+## 4. Production Deployment Platforms
 
-Render is the simplest and most reliable zero-cost PaaS for this application:
+### Option A: Vercel (Live Production - Recommended)
+The application is live and hosted on Vercel at **[https://toc-project-ruiv.vercel.app/](https://toc-project-ruiv.vercel.app/)**.
 
-### Prerequisites:
+#### Deployment Details:
+- **Runtime:** Serverless Python (`@vercel/python`)
+- **Configuration File:** `vercel.json`
+- **Entrypoint:** `src/web_api.py` (Flask instance `app`)
+- **Included Assets:** `web/**` (HTML, CSS, JS) and `data/**` (`sample.log`)
+- **Routes:** `/(.*)` &rarr; `src/web_api.py`
+
+#### Deploying to Vercel via CLI:
+```powershell
+# In the project root:
+vercel --prod
+```
+
+### Option B: Render PaaS
+The application is also pre-configured for containerized deployment on [Render](https://render.com) using the included `Procfile` and `render.yaml`.
+
+#### Prerequisites:
 - A GitHub repository containing this project folder.
 - A free account at [render.com](https://render.com).
 
-### Step 1: Push Code to GitHub
-Ensure the project is pushed to your GitHub repository:
+#### Step 1: Push Code to GitHub
 ```powershell
 git add .
 git commit -m "Prepare deployment configuration for TOC case study dashboard"
 git push origin main
 ```
 
-### Step 2: Create Web Service on Render
+#### Step 2: Create Web Service on Render
 1. Log into your Render Dashboard and click **"New +" &rarr; "Web Service"**.
 2. Connect your GitHub repository containing the TOC Project.
 3. Configure the following service settings:
