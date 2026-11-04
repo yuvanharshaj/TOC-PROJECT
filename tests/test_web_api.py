@@ -186,14 +186,20 @@ class TestWebAPI(unittest.TestCase):
         self.assertEqual(response.status_code, 413)
 
     def test_get_static_assets(self):
-        """Verifies that static assets (styles.css and app.js) are served properly."""
+        """Verifies that static assets (styles.css and app.js) and /index.html are served properly."""
         with self.client.get("/styles.css") as resp_css:
             self.assertEqual(resp_css.status_code, 200)
+            self.assertIn("text/css", resp_css.headers.get("Content-Type", ""))
             self.assertIn(b"--bg-base", resp_css.data)
 
         with self.client.get("/app.js") as resp_js:
             self.assertEqual(resp_js.status_code, 200)
+            self.assertIn("application/javascript", resp_js.headers.get("Content-Type", ""))
             self.assertIn(b"runEquivalenceComparison", resp_js.data)
+
+        with self.client.get("/index.html") as resp_idx:
+            self.assertEqual(resp_idx.status_code, 200)
+            self.assertIn(b"Log File Analysis Engine", resp_idx.data)
 
     def test_security_headers(self):
         """Verifies that production security headers are injected on responses."""

@@ -33,8 +33,16 @@ if str(PROJECT_ROOT) not in sys.path:
 from src.re_analyzer import REAnalyzer
 from src.dfa_analyzer import DFAErrorScanner
 
-WEB_DIR = PROJECT_ROOT / "web"
-SAMPLE_LOG_PATH = PROJECT_ROOT / "data" / "sample.log"
+def _resolve_resource(rel_path: str) -> Path:
+    """Resolves path across local, container, and serverless deployment environments."""
+    for base in (PROJECT_ROOT, Path.cwd(), Path(__file__).resolve().parent.parent):
+        candidate = (base / rel_path).resolve()
+        if candidate.exists():
+            return candidate
+    return (PROJECT_ROOT / rel_path).resolve()
+
+WEB_DIR = _resolve_resource("web")
+SAMPLE_LOG_PATH = _resolve_resource("data/sample.log")
 MAX_PAYLOAD_CHARS = 500_000  # Safe cap for input processing (~500 KB)
 
 app = Flask(__name__, static_folder=str(WEB_DIR), static_url_path="")
@@ -57,9 +65,22 @@ def add_security_headers(response):
 
 
 @app.route("/", methods=["GET"])
+@app.route("/index.html", methods=["GET"])
 def index():
     """Serves the dashboard index page."""
-    return send_from_directory(str(WEB_DIR), "index.html")
+    return send_from_directory(str(WEB_DIR), "index.html", mimetype="text/html")
+
+
+@app.route("/styles.css", methods=["GET"])
+def styles():
+    """Serves the dashboard CSS stylesheet."""
+    return send_from_directory(str(WEB_DIR), "styles.css", mimetype="text/css")
+
+
+@app.route("/app.js", methods=["GET"])
+def script():
+    """Serves the dashboard JavaScript application logic."""
+    return send_from_directory(str(WEB_DIR), "app.js", mimetype="application/javascript")
 
 
 @app.route("/api/sample-log", methods=["GET"])
