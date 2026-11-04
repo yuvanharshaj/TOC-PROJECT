@@ -3,6 +3,7 @@
 **Course:** Theory of Computations (24CS52)  
 **Case Study:** SET-E — Log File Analysis Engine  
 **Live Application URL:** [https://toc-project-ruiv.vercel.app/](https://toc-project-ruiv.vercel.app/)  
+**Case Study Report (DOCX):** [`docs/TOC_Case_Study_Report.docx`](docs/TOC_Case_Study_Report.docx)  
 **GitHub Repository:** [https://github.com/yuvanharshaj/TOC-PROJECT](https://github.com/yuvanharshaj/TOC-PROJECT)
 
 ---
