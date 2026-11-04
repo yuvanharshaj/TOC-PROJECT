@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: toc-log-analyzer
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn src.web_api:app
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.13.3
+      - key: FLASK_DEBUG
+        value: "0"
+

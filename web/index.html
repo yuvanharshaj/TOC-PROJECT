@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TOC Case Study (SET-E) — Log Analysis using RE & DFA</title>
+  <meta name="description" content="Theory of Computations (24CS52) Case Study: System Log File Analysis using Regular Expressions and Deterministic Finite Automata">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header" role="banner">
+      <div class="header-content">
+        <div class="header-top-row">
+          <div class="badge-row">
+            <span class="badge badge-course">24CS52 — THEORY OF COMPUTATIONS</span>
+            <span class="badge badge-set">SET-E CASE STUDY</span>
+            <span class="badge badge-status">VERIFIED AUTOMATA</span>
+          </div>
+          <button id="btn-toggle-drawer" class="btn btn-outline-theory" title="Open TOC Theory & Syllabus Reference Guide">
+            <span class="btn-icon">📖</span> Theory & Reference Guide
+          </button>
+        </div>
+        <h1 class="project-title">Log File Analysis Engine</h1>
+        <p class="project-subtitle">
+          Empirical comparison of <strong>Extended Regular Expressions</strong> (declarative multi-pattern extraction) 
+          and a <strong>Deterministic Finite Automaton</strong> (manual 7-state scanner for whole-word <code>ERROR</code>).
+        </p>
+      </div>
+
+      <!-- Main Navigation Tabs -->
+      <nav class="nav-tabs" role="tablist" aria-label="Dashboard Sections">
+        <button class="nav-tab active" role="tab" id="tab-btn-analyzer" aria-selected="true" aria-controls="panel-analyzer" data-tab="panel-analyzer">
+          <span class="tab-icon">📋</span> Stream Analyzer
+        </button>
+        <button class="nav-tab" role="tab" id="tab-btn-compare" aria-selected="false" aria-controls="panel-compare" data-tab="panel-compare">
+          <span class="tab-icon">⚖️</span> Equivalence Comparator
+        </button>
+        <button class="nav-tab" role="tab" id="tab-btn-dfa" aria-selected="false" aria-controls="panel-dfa" data-tab="panel-dfa">
+          <span class="tab-icon">🔄</span> DFA Visualizer & Tracer
+        </button>
+        <button class="nav-tab" role="tab" id="tab-btn-benchmark" aria-selected="false" aria-controls="panel-benchmark" data-tab="panel-benchmark">
+          <span class="tab-icon">⏱️</span> Live Benchmark
+        </button>
+        <button class="nav-tab" role="tab" id="tab-btn-theory" aria-selected="false" aria-controls="panel-theory" data-tab="panel-theory">
+          <span class="tab-icon">📚</span> Theory & Syllabus
+        </button>
+      </nav>
+    </header>
+
+    <!-- Main Content Area with Tab Panels -->
+    <main class="main-content" role="main">
+
+      <!-- ===================================================================
+           TAB 1: LOG STREAM ANALYZER
+           =================================================================== -->
+      <div id="panel-analyzer" class="tab-panel active" role="tabpanel" aria-labelledby="tab-btn-analyzer">
+        <!-- Input Section -->
+        <section class="card input-card" aria-labelledby="input-heading">
+          <div class="card-header">
+            <div class="header-left">
+              <h2 id="input-heading" class="card-title">1. Log Input Stream</h2>
+              <span class="text-muted" id="log-stats-badge">30 lines | 2,520 chars</span>
+            </div>
+            <div class="header-actions">
+              <button id="btn-load-sample" class="btn btn-secondary" title="Load the verified 30-entry sample log">
+                Load Sample Log
+              </button>
+              <button id="btn-clear-log" class="btn btn-ghost" title="Clear log editor">
+                Clear
+              </button>
+            </div>
+          </div>
+
+          <p class="section-intro">
+            Paste server or application logs below, or click <strong>Load Sample Log</strong> to inspect the included 30-entry dataset. 
+            Choose <strong>Run Regex Analyzer</strong> to extract all five patterns, or <strong>Run DFA Scanner</strong> to scan specifically for whole-word <code>ERROR</code> occurrences.
+          </p>
+
+          <div class="editor-wrapper">
+            <textarea 
+              id="log-input" 
+              class="code-editor" 
+              placeholder="Paste system logs or click 'Load Sample Log' to begin..." 
+              spellcheck="false"
+              aria-label="System Log Input"></textarea>
+          </div>
+
+          <div class="action-bar">
+            <div class="btn-group">
+              <button id="btn-run-re" class="btn btn-primary" title="Execute Python re analyzer across all 5 patterns">
+                <span class="btn-icon">⚡</span> Run Regex Analyzer (5 Patterns)
+              </button>
+              <button id="btn-run-dfa" class="btn btn-primary-alt" title="Execute pure Python manual DFA scanner for ERROR">
+                <span class="btn-icon">⚙</span> Run DFA Scanner (Keyword ERROR)
+              </button>
+            </div>
+            <div id="loading-indicator" class="loading-state hidden" aria-live="polite">
+              <span class="spinner"></span>
+              <span id="loading-text">Analyzing stream with Python engine...</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- Overview Metric Cards -->
+        <section class="metrics-grid" aria-label="Analysis Overview Metrics">
+          <div class="metric-card">
+            <span class="metric-label">Input Size</span>
+            <div class="metric-value" id="val-log-size">2,520 <span class="metric-unit">chars</span></div>
+            <span class="metric-subtext" id="sub-log-lines">30 log entries</span>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">Total Regex Matches</span>
+            <div class="metric-value text-blue" id="val-total-re">-</div>
+            <span class="metric-subtext" id="sub-re-time">Awaiting execution</span>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">ERROR Occurrences</span>
+            <div class="metric-value text-red" id="val-error-count">-</div>
+            <span class="metric-subtext" id="sub-error-match">RE / DFA target</span>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">WARNING Occurrences</span>
+            <div class="metric-value text-amber" id="val-warning-count">-</div>
+            <span class="metric-subtext">RE pattern target</span>
+          </div>
+        </section>
+
+        <!-- Scope Notice / Context Card -->
+        <section class="card banner-card" aria-label="Implementation Scope Notice">
+          <div class="banner-icon">ℹ</div>
+          <div class="banner-text">
+            <strong>Formal Implementation Scope Note:</strong> 
+            The <em>Regular Expression Analyzer</em> checks all five defined patterns (Date, Time, IPv4, ERROR, WARNING). 
+            The <em>DFA Scanner</em> is a dedicated 7-state automaton implementing whole-word boundary recognition specifically for the keyword <code>ERROR</code> without any regex libraries. Both engines execute on identical text and produce matching spatial coordinates.
+          </div>
+        </section>
+
+        <!-- Results Section -->
+        <section class="card results-card" aria-labelledby="results-heading">
+          <div class="card-header">
+            <div class="header-left">
+              <h2 id="results-heading" class="card-title">2. Analysis Results</h2>
+              <span id="results-engine-badge" class="engine-badge badge-neutral">No active run</span>
+            </div>
+            <div class="header-actions">
+              <div class="filter-controls">
+                <label for="filter-pattern" class="visually-hidden">Filter by pattern</label>
+                <select id="filter-pattern" class="select-filter" aria-label="Filter results by pattern">
+                  <option value="ALL">All Patterns</option>
+                  <option value="Date (DD-MM-YYYY)">Date (DD-MM-YYYY)</option>
+                  <option value="Time (HH:MM)">Time (HH:MM)</option>
+                  <option value="IPv4 Address">IPv4 Address</option>
+                  <option value="ERROR Keyword">ERROR Keyword</option>
+                  <option value="WARNING Keyword">WARNING Keyword</option>
+                </select>
+                <label for="search-results" class="visually-hidden">Search results</label>
+                <input 
+                  type="text" 
+                  id="search-results" 
+                  class="input-search" 
+                  placeholder="Search matches or line text..." 
+                  aria-label="Search matches">
+              </div>
+            </div>
+          </div>
+
+          <!-- Pattern Pill Summaries -->
+          <div id="pattern-pills" class="pattern-pills-bar" aria-label="Pattern counts"></div>
+
+          <!-- Table Container -->
+          <div class="table-responsive">
+            <table class="data-table" id="results-table">
+              <thead>
+                <tr>
+                  <th scope="col" style="width: 50px;">#</th>
+                  <th scope="col" style="width: 170px;">Pattern Type</th>
+                  <th scope="col" style="width: 140px;">Matched Value</th>
+                  <th scope="col" style="width: 130px;">Span [start:end)</th>
+                  <th scope="col" style="width: 90px;">Line:Col</th>
+                  <th scope="col">Log Line Context</th>
+                </tr>
+              </thead>
+              <tbody id="results-tbody">
+                <tr class="empty-row">
+                  <td colspan="6">
+                    <div class="empty-state">
+                      <p class="empty-title">Ready for Analysis</p>
+                      <p class="empty-desc">Click <strong>Run Regex Analyzer</strong> or <strong>Run DFA Scanner</strong> above to analyze the log stream.</p>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <!-- ===================================================================
+           TAB 2: EQUIVALENCE COMPARATOR (RE vs DFA on ERROR)
+           =================================================================== -->
+      <div id="panel-compare" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-compare">
+        <section class="card" aria-labelledby="compare-heading">
+          <div class="card-header">
+            <div class="header-left">
+              <h2 id="compare-heading" class="card-title">Side-by-Side Equivalence Comparator</h2>
+              <span class="badge badge-set">Formal Verification</span>
+            </div>
+            <div class="header-actions">
+              <button id="btn-run-compare" class="btn btn-primary" title="Execute side-by-side comparison on current log text">
+                <span class="btn-icon">⚡</span> Run Equivalence Verification
+              </button>
+            </div>
+          </div>
+
+          <p class="section-intro">
+            Direct head-to-head comparison between Python's <code>re</code> engine (matching <code>\bERROR\b</code>) and the manual 7-state 
+            <code>DFAErrorScanner</code>. Every match coordinate—character offset range <code>[start:end)</code> and 1-based 
+            <code>(line, column)</code>—is verified for exact parity.
+          </p>
+
+          <!-- Parity Summary Banner -->
+          <div id="compare-summary-card" class="parity-summary-card parity-neutral">
+            <div class="parity-icon" id="parity-status-icon">⚖️</div>
+            <div class="parity-info">
+              <h3 class="parity-title" id="parity-status-title">Awaiting Verification</h3>
+              <p class="parity-desc" id="parity-status-desc">
+                Click "Run Equivalence Verification" to compare regex <code>\bERROR\b</code> against DFA matches on the current input.
+              </p>
+            </div>
+            <div class="parity-metrics">
+              <div class="p-metric">
+                <span class="p-metric-label">Regex Matches</span>
+                <span class="p-metric-val" id="comp-re-count">-</span>
+              </div>
+              <div class="p-metric">
+                <span class="p-metric-label">DFA Matches</span>
+                <span class="p-metric-val" id="comp-dfa-count">-</span>
+              </div>
+              <div class="p-metric">
+                <span class="p-metric-label">Match Parity</span>
+                <span class="p-metric-val" id="comp-parity-rate">-</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Side-by-side Comparison Table -->
+          <div class="table-responsive" style="margin-top: 20px;">
+            <table class="data-table" id="compare-table">
+              <thead>
+                <tr>
+                  <th scope="col" style="width: 45px;">#</th>
+                  <th scope="col" style="width: 140px;">Regex Match</th>
+                  <th scope="col" style="width: 130px;">Regex Span</th>
+                  <th scope="col" style="width: 90px;">RE Coord</th>
+                  <th scope="col" style="width: 140px;">DFA Match</th>
+                  <th scope="col" style="width: 130px;">DFA Span</th>
+                  <th scope="col" style="width: 90px;">DFA Coord</th>
+                  <th scope="col" style="width: 110px;">Parity Check</th>
+                  <th scope="col">Log Line Context</th>
+                </tr>
+              </thead>
+              <tbody id="compare-tbody">
+                <tr class="empty-row">
+                  <td colspan="9">
+                    <div class="empty-state">
+                      <p class="empty-title">No Comparison Run Yet</p>
+                      <p class="empty-desc">Click <strong>Run Equivalence Verification</strong> to test spatial parity.</p>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <!-- ===================================================================
+           TAB 3: DFA VISUALIZER & TOKEN TRACER
+           =================================================================== -->
+      <div id="panel-dfa" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-dfa">
+        <!-- Automaton Architecture Card -->
+        <section class="card" aria-labelledby="dfa-arch-heading">
+          <div class="card-header">
+            <div class="header-left">
+              <h2 id="dfa-arch-heading" class="card-title">DFA Architecture & Formal 5-Tuple</h2>
+              <span class="badge badge-course">M = (Q, &Sigma;, &delta;, q0, F)</span>
+            </div>
+            <div class="header-actions">
+              <button id="btn-refresh-dfa-meta" class="btn btn-secondary" title="Re-fetch metadata from Python source">
+                Reload Specification
+              </button>
+            </div>
+          </div>
+
+          <div class="tuple-grid">
+            <div class="tuple-card">
+              <span class="tuple-key">States (Q)</span>
+              <span class="tuple-val">{q0, q1, q2, q3, q4, q5, q_word} (7 states)</span>
+            </div>
+            <div class="tuple-card">
+              <span class="tuple-key">Alphabet Classes (&Sigma;)</span>
+              <span class="tuple-val">{E, R, O, OTHER_WORD, NON_WORD} (5 partitions)</span>
+            </div>
+            <div class="tuple-card">
+              <span class="tuple-key">Start State (q0)</span>
+              <span class="tuple-val">q0 (At word boundary / scanning)</span>
+            </div>
+            <div class="tuple-card">
+              <span class="tuple-key">Accepting State (F)</span>
+              <span class="tuple-val">{q5} (Emits match on NON_WORD or EOF)</span>
+            </div>
+            <div class="tuple-card">
+              <span class="tuple-key">Trap State</span>
+              <span class="tuple-val">q_word (Inside non-matching word)</span>
+            </div>
+            <div class="tuple-card">
+              <span class="tuple-key">Boundary Behavior</span>
+              <span class="tuple-val">Rejects suffixes (ERRORS), prefixes (XERROR), alphanumerics</span>
+            </div>
+          </div>
+
+          <!-- State Flow Pipeline Visualizer -->
+          <div class="state-pipeline-container" aria-label="DFA State Progression Diagram">
+            <h3 class="subsection-title">Recognition Path for 'ERROR'</h3>
+            <div class="pipeline-track">
+              <div class="pipeline-node node-start">
+                <span class="node-state">q0</span>
+                <span class="node-label">Start / Boundary</span>
+              </div>
+              <div class="pipeline-edge">
+                <span class="edge-char">'E'</span>
+                <span class="edge-arrow">&rarr;</span>
+              </div>
+              <div class="pipeline-node">
+                <span class="node-state">q1</span>
+                <span class="node-label">Matched "E"</span>
+              </div>
+              <div class="pipeline-edge">
+                <span class="edge-char">'R'</span>
+                <span class="edge-arrow">&rarr;</span>
+              </div>
+              <div class="pipeline-node">
+                <span class="node-state">q2</span>
+                <span class="node-label">Matched "ER"</span>
+              </div>
+              <div class="pipeline-edge">
+                <span class="edge-char">'R'</span>
+                <span class="edge-arrow">&rarr;</span>
+              </div>
+              <div class="pipeline-node">
+                <span class="node-state">q3</span>
+                <span class="node-label">Matched "ERR"</span>
+              </div>
+              <div class="pipeline-edge">
+                <span class="edge-char">'O'</span>
+                <span class="edge-arrow">&rarr;</span>
+              </div>
+              <div class="pipeline-node">
+                <span class="node-state">q4</span>
+                <span class="node-label">Matched "ERRO"</span>
+              </div>
+              <div class="pipeline-edge">
+                <span class="edge-char">'R'</span>
+                <span class="edge-arrow">&rarr;</span>
+              </div>
+              <div class="pipeline-node node-accept">
+                <span class="node-state">q5</span>
+                <span class="node-label">Candidate "ERROR"</span>
+              </div>
+              <div class="pipeline-edge">
+                <span class="edge-char">NON_WORD / EOF</span>
+                <span class="edge-arrow">&rarr;</span>
+              </div>
+              <div class="pipeline-node node-emit">
+                <span class="node-state">ACCEPT</span>
+                <span class="node-label">Emit Match & Reset</span>
+              </div>
+            </div>
+            <div class="trap-flow-note">
+              <span class="trap-badge">Trap Redirection:</span> If any unexpected word character (<code>[a-zA-Z0-9_]</code>) appears at any step or after <code>q5</code>, the machine enters <code>q_word</code> and consumes all word characters until the next non-word boundary, ensuring no partial matches (e.g. <code>ERRORS</code>, <code>ERROR_</code>, <code>ERROR7</code>).
+            </div>
+          </div>
+
+          <!-- Dynamic Transition Table Matrix -->
+          <div style="margin-top: 24px;">
+            <div class="table-header-row">
+              <h3 class="subsection-title">Full 7 &times; 5 Transition Matrix &delta;(State, Class)</h3>
+              <span class="text-muted" style="font-size: 11px;">Derived live from <code>src.dfa_analyzer.DFAErrorScanner.TRANSITION_TABLE</code></span>
+            </div>
+            <div class="table-responsive">
+              <table class="data-table matrix-table" id="transition-matrix-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Current State</th>
+                    <th scope="col">'E'</th>
+                    <th scope="col">'R'</th>
+                    <th scope="col">'O'</th>
+                    <th scope="col">OTHER_WORD ([a-zA-Z0-9_] \ {E,R,O})</th>
+                    <th scope="col">NON_WORD (Delimiter / \W)</th>
+                  </tr>
+                </thead>
+                <tbody id="transition-matrix-tbody">
+                  <tr><td colspan="6" class="text-muted" style="text-align: center; padding: 20px;">Loading transition matrix from Python API...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- Interactive Step-by-Step Token Tracer -->
+        <section class="card" aria-labelledby="tracer-heading" style="margin-top: 24px;">
+          <div class="card-header">
+            <div class="header-left">
+              <h2 id="tracer-heading" class="card-title">Interactive DFA Token Tracer</h2>
+              <span class="text-muted">Simulate the real DFA execution character-by-character</span>
+            </div>
+          </div>
+
+          <div class="tracer-presets-bar">
+            <span class="preset-label">Test Presets:</span>
+            <div class="preset-chips">
+              <button class="preset-chip" data-token="ERROR">ERROR (Valid)</button>
+              <button class="preset-chip" data-token="[ERROR]">[ERROR] (Valid)</button>
+              <button class="preset-chip" data-token="(ERROR)">(ERROR) (Valid)</button>
+              <button class="preset-chip" data-token="ERRORS">ERRORS (Suffix Reject)</button>
+              <button class="preset-chip" data-token="XERROR">XERROR (Prefix Reject)</button>
+              <button class="preset-chip" data-token="ERROR_">ERROR_ (Underscore Reject)</button>
+              <button class="preset-chip" data-token="_ERROR">_ERROR (Underscore Prefix)</button>
+              <button class="preset-chip" data-token="ERROR7">ERROR7 (Digit Reject)</button>
+              <button class="preset-chip" data-token="error">error (Case Reject)</button>
+            </div>
+          </div>
+
+          <div class="tracer-input-row">
+            <input 
+              type="text" 
+              id="tracer-input" 
+              class="tracer-input" 
+              placeholder="Enter custom token string to trace (e.g., [ERROR:404] or ERRORS)..." 
+              value="[ERROR]">
+            <button id="btn-run-trace" class="btn btn-primary">
+              <span class="btn-icon">▶</span> Trace Automaton
+            </button>
+          </div>
+
+          <!-- Trace Results Area -->
+          <div id="tracer-output-container" class="tracer-output-container">
+            <div id="tracer-summary" class="tracer-summary-banner hidden"></div>
+            <div class="table-responsive" style="margin-top: 14px;">
+              <table class="data-table" id="tracer-steps-table">
+                <thead>
+                  <tr>
+                    <th scope="col" style="width: 60px;">Step</th>
+                    <th scope="col" style="width: 80px;">Char</th>
+                    <th scope="col" style="width: 140px;">Character Class</th>
+                    <th scope="col" style="width: 100px;">From State</th>
+                    <th scope="col" style="width: 100px;">To State</th>
+                    <th scope="col">DFA Action & Boundary Logic</th>
+                  </tr>
+                </thead>
+                <tbody id="tracer-steps-tbody">
+                  <tr class="empty-row">
+                    <td colspan="6">
+                      <div class="empty-state">
+                        <p class="empty-title">Ready to Trace</p>
+                        <p class="empty-desc">Choose a test preset above or type a custom string and click <strong>Trace Automaton</strong>.</p>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- ===================================================================
+           TAB 4: LIVE BENCHMARK (OPTIONAL FRESH RUN)
+           =================================================================== -->
+      <div id="panel-benchmark" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-benchmark">
+        <section class="card" aria-labelledby="benchmark-heading">
+          <div class="card-header">
+            <div class="header-left">
+              <h2 id="benchmark-heading" class="card-title">Live Empirical Performance Benchmark</h2>
+              <span class="badge badge-set">Optional Fresh Run</span>
+            </div>
+            <div class="header-actions">
+              <div class="iterations-selector">
+                <label for="benchmark-iterations" class="iter-label">Iterations:</label>
+                <select id="benchmark-iterations" class="select-filter" style="width: 100px;">
+                  <option value="25">25</option>
+                  <option value="50" selected>50</option>
+                  <option value="100">100</option>
+                  <option value="200">200</option>
+                </select>
+              </div>
+              <button id="btn-run-live-benchmark" class="btn btn-primary" title="Execute fresh benchmark on current log input">
+                <span class="btn-icon">⚡</span> Run Fresh Benchmark
+              </button>
+            </div>
+          </div>
+
+          <!-- Prominent Methodology Disclaimer -->
+          <div class="disclaimer-banner">
+            <div class="disclaimer-icon">⚠️</div>
+            <div class="disclaimer-body">
+              <strong>Methodology & Machine-Dependent Disclaimer:</strong>
+              This tool performs a <em>fresh, live empirical benchmark</em> using Python's <code>time.perf_counter()</code> on this local host machine.
+              Timings are subject to OS thread scheduling, CPU background load, garbage collection, and Python interpreter overhead.
+              They <strong>measure this specific Python implementation on this host</strong>, not an intrinsic algorithmic limit.
+              <br><br>
+              <strong>Workload Distinction:</strong>
+              <strong>Workload A</strong> is a strict <em>like-for-like</em> comparison between the RE single <code>ERROR</code> matcher and the DFA <code>ERROR</code> scanner on identical text.
+              <strong>Workload B</strong> runs the complete 5-pattern RE engine (Date, Time, IPv4, ERROR, WARNING) and represents a significantly larger multi-pattern extraction task.
+            </div>
+          </div>
+
+          <div id="benchmark-loading" class="benchmark-loading-state hidden">
+            <span class="spinner"></span>
+            <span id="benchmark-loading-text">Running live benchmark iterations in Python backend...</span>
+          </div>
+
+          <!-- Benchmark Stats Grid -->
+          <div id="benchmark-results-view" class="benchmark-results-view hidden">
+            <div class="benchmark-comparison-grid">
+              <!-- Card 1: RE ERROR (Like-for-like) -->
+              <div class="bench-card">
+                <div class="bench-card-header">
+                  <span class="bench-workload-badge">Workload A (Like-for-Like)</span>
+                  <h3 class="bench-card-title">Regex ERROR Matcher</h3>
+                  <code class="bench-code">\bERROR\b (Python re)</code>
+                </div>
+                <div class="bench-stat-hero">
+                  <span class="bench-hero-val" id="b-re-median">-</span>
+                  <span class="bench-hero-unit">&mu;s (median)</span>
+                </div>
+                <div class="bench-stat-list">
+                  <div class="bench-stat-row">
+                    <span class="stat-name">Mean</span>
+                    <span class="stat-val" id="b-re-mean">-</span>
+                  </div>
+                  <div class="bench-stat-row">
+                    <span class="stat-name">Min</span>
+                    <span class="stat-val" id="b-re-min">-</span>
+                  </div>
+                  <div class="bench-stat-row">
+                    <span class="stat-name">Max</span>
+                    <span class="stat-val" id="b-re-max">-</span>
+                  </div>
+                  <div class="bench-stat-row">
+                    <span class="stat-name">Std Dev</span>
+                    <span class="stat-val" id="b-re-stdev">-</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Card 2: DFA ERROR Scanner (Like-for-like) -->
+              <div class="bench-card bench-card-highlight">
+                <div class="bench-card-header">
+                  <span class="bench-workload-badge">Workload A (Like-for-Like)</span>
+                  <h3 class="bench-card-title">Manual DFA Scanner</h3>
+                  <code class="bench-code">7-State Python Automaton</code>
+                </div>
+                <div class="bench-stat-hero">
+                  <span class="bench-hero-val" id="b-dfa-median">-</span>
+                  <span class="bench-hero-unit">&mu;s (median)</span>
+                </div>
+                <div class="bench-stat-list">
+                  <div class="bench-stat-row">
+                    <span class="stat-name">Mean</span>
+                    <span class="stat-val" id="b-dfa-mean">-</span>
+                  </div>
+                  <div class="bench-stat-row">
+                    <span class="stat-name">Min</span>
+                    <span class="stat-val" id="b-dfa-min">-</span>
+                  </div>
+                  <div class="bench-stat-row">
+                    <span class="stat-name">Max</span>
+                    <span class="stat-val" id="b-dfa-max">-</span>
+                  </div>
+                  <div class="bench-stat-row">
+                    <span class="stat-name">Std Dev</span>
+                    <span class="stat-val" id="b-dfa-stdev">-</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Card 3: RE All 5 Patterns (Different Workload) -->
+              <div class="bench-card">
+                <div class="bench-card-header">
+                  <span class="bench-workload-badge badge-separate">Workload B (Separate Task)</span>
+                  <h3 class="bench-card-title">Full 5-Pattern RE</h3>
+                  <code class="bench-code">Date, Time, IPv4, ERR, WARN</code>
+                </div>
+                <div class="bench-stat-hero">
+                  <span class="bench-hero-val" id="b-all-median">-</span>
+                  <span class="bench-hero-unit">&mu;s (median)</span>
+                </div>
+                <div class="bench-stat-list">
+                  <div class="bench-stat-row">
+                    <span class="stat-name">Mean</span>
+                    <span class="stat-val" id="b-all-mean">-</span>
+                  </div>
+                  <div class="bench-stat-row">
+                    <span class="stat-name">Min</span>
+                    <span class="stat-val" id="b-all-min">-</span>
+                  </div>
+                  <div class="bench-stat-row">
+                    <span class="stat-name">Max</span>
+                    <span class="stat-val" id="b-all-max">-</span>
+                  </div>
+                  <div class="bench-stat-row">
+                    <span class="stat-name">Std Dev</span>
+                    <span class="stat-val" id="b-all-stdev">-</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="bench-analysis-box" id="bench-analysis-text"></div>
+          </div>
+        </section>
+      </div>
+
+      <!-- ===================================================================
+           TAB 5: THEORY & SYLLABUS REFERENCE
+           =================================================================== -->
+      <div id="panel-theory" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-theory">
+        <section class="card" aria-labelledby="theory-heading">
+          <div class="card-header">
+            <div class="header-left">
+              <h2 id="theory-heading" class="card-title">Academic Theory & Course Reference</h2>
+              <span class="badge badge-course">24CS52 — Theory of Computations</span>
+            </div>
+          </div>
+
+          <div class="theory-article">
+            <!-- Section 1: Academic Context -->
+            <div class="theory-block">
+              <h3 class="theory-section-title">1. Course Alignment & Case Study Objective</h3>
+              <p>
+                This implementation corresponds to <strong>Computer Science & Engineering 5th Semester</strong> 
+                Course Code <strong>24CS52 (Theory of Computations)</strong>, Case Study <strong>SET-E: "Log File Analysis Using Regular Expressions and DFA"</strong>.
+              </p>
+              <p>
+                The objective is to analyze semi-structured system logs by pairing declarative regular expression pattern extractors 
+                with a formally designed Deterministic Finite Automaton (DFA) without relying on regex engines for the automaton component.
+              </p>
+            </div>
+
+            <!-- Section 2: Regular Expressions Definition -->
+            <div class="theory-block">
+              <h3 class="theory-section-title">2. Regular Expression Specification (5 Patterns)</h3>
+              <div class="theory-patterns-grid">
+                <div class="pattern-spec-card">
+                  <div class="p-header"><strong>Date (DD-MM-YYYY)</strong></div>
+                  <code>\b(0[1-9]|[12][0-9]|3[01])-(0[1-9]|1[0-2])-(?:19|20)\d\d\b</code>
+                  <div class="p-note">Enforces 01-31 days, 01-12 months, and 1900-2099 years with explicit word boundary guards.</div>
+                </div>
+                <div class="pattern-spec-card">
+                  <div class="p-header"><strong>Time (HH:MM)</strong></div>
+                  <code>\b(?:[01]\d|2[0-3]):[0-5]\d\b</code>
+                  <div class="p-note">Standard 24-hour clock syntax (00:00 to 23:59).</div>
+                </div>
+                <div class="pattern-spec-card">
+                  <div class="p-header"><strong>IPv4 Address</strong></div>
+                  <code>\b(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}\b</code>
+                  <div class="p-note">Strict octet range 0-255 across four dot-separated octets without leading extra digits.</div>
+                </div>
+                <div class="pattern-spec-card">
+                  <div class="p-header"><strong>ERROR Keyword</strong></div>
+                  <code>\bERROR\b</code>
+                  <div class="p-note">Case-sensitive whole-word token matching target for cross-validation with the DFA.</div>
+                </div>
+                <div class="pattern-spec-card">
+                  <div class="p-header"><strong>WARNING Keyword</strong></div>
+                  <code>\bWARNING\b</code>
+                  <div class="p-note">Case-sensitive whole-word warning token.</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Section 3: Formal Automaton Model -->
+            <div class="theory-block">
+              <h3 class="theory-section-title">3. Formal DFA Definition M = (Q, &Sigma;, &delta;, q0, F)</h3>
+              <ul class="theory-list">
+                <li><strong>State Set (Q):</strong> {q0, q1, q2, q3, q4, q5, q_word}.</li>
+                <li><strong>Alphabet Classes (&Sigma;):</strong> Five disjoint character equivalence classes: <code>'E'</code>, <code>'R'</code>, <code>'O'</code>, <code>OTHER_WORD</code> (all other <code>[a-zA-Z0-9_]</code>), and <code>NON_WORD</code> (any delimiter or whitespace).</li>
+                <li><strong>Start State (q0):</strong> The automaton begins at state <code>q0</code> (word boundary).</li>
+                <li><strong>Transition Function (&delta;):</strong> Explicit matrix mapping every <code>(state, class)</code> pair to a deterministic next state.</li>
+                <li><strong>Acceptance Condition (F):</strong> State <code>q5</code> accepts the candidate match <em>if and only if</em> followed immediately by a <code>NON_WORD</code> character or End-Of-File (EOF).</li>
+              </ul>
+            </div>
+
+            <!-- Section 4: Complexity & Performance -->
+            <div class="theory-block">
+              <h3 class="theory-section-title">4. Algorithmic Complexity & Engineering Tradeoffs</h3>
+              <div class="theory-table-wrapper">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Dimension</th>
+                      <th scope="col">Python <code>re</code> Engine</th>
+                      <th scope="col">Manual <code>DFAErrorScanner</code></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td><strong>Theoretical Time</strong></td>
+                      <td>Linear O(N) on these non-backtracking patterns; potential O(2^N) on vulnerable backtracking regexes.</td>
+                      <td>Strict linear O(N) deterministic scan guaranteed under all input permutations.</td>
+                    </tr>
+                    <tr>
+                      <td><strong>Empirical Execution</strong></td>
+                      <td>Executed in compiled C (CPython <code>_sre</code> engine); typically fast in raw CPU cycles.</td>
+                      <td>Executed in interpreted Python byte-code (loop overhead per character).</td>
+                    </tr>
+                    <tr>
+                      <td><strong>Memory Footprint</strong></td>
+                      <td>Precompiled regex byte-code in C heap.</td>
+                      <td>Constant O(1) state transitions using integer lookups.</td>
+                    </tr>
+                    <tr>
+                      <td><strong>Extensibility</strong></td>
+                      <td>Trivial: change regex string (declarative).</td>
+                      <td>Requires re-computing states and transition matrix for new keywords.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Section 5: Documented Limitations -->
+            <div class="theory-block">
+              <h3 class="theory-section-title">5. Documented Limitations & Safeguards</h3>
+              <ul class="theory-list">
+                <li><strong>Calendar Day Validation:</strong> Syntactic regex accepts syntactically valid calendar strings such as <code>31-02-2024</code>, which require semantic date parsing to reject.</li>
+                <li><strong>IPv4 Edge Cases:</strong> Regex matches dotted-decimal IPv4, but does not parse CIDR notations or IPv6 addresses.</li>
+                <li><strong>DFA Specialization:</strong> Manual DFA recognizes only whole-word <code>ERROR</code> tokens; expanding to 5 patterns would require a generalized Aho-Corasick or lexer-generator DFA.</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+      </div>
+
+    </main>
+
+    <!-- Side Drawer: Quick Theory Reference -->
+    <aside id="theory-drawer" class="theory-drawer hidden" aria-label="Theory Quick Reference Drawer" aria-hidden="true">
+      <div class="drawer-header">
+        <h3 class="drawer-title">Course Reference (24CS52)</h3>
+        <button id="btn-close-drawer" class="btn-drawer-close" aria-label="Close Reference Drawer">&times;</button>
+      </div>
+      <div class="drawer-body">
+        <h4>Case Study SET-E</h4>
+        <p>Log File Analysis Using Regular Expressions and DFA.</p>
+        
+        <h4>DFA 5-Tuple:</h4>
+        <p><code>M = (Q, &Sigma;, &delta;, q0, F)</code></p>
+        <ul>
+          <li><strong>Q:</strong> {q0, q1, q2, q3, q4, q5, q_word}</li>
+          <li><strong>&Sigma;:</strong> {E, R, O, OTHER_WORD, NON_WORD}</li>
+          <li><strong>q0:</strong> Start state (word boundary)</li>
+          <li><strong>F:</strong> {q5} on NON_WORD or EOF</li>
+        </ul>
+
+        <h4>Regex Patterns:</h4>
+        <ul>
+          <li><strong>Date:</strong> <code>DD-MM-YYYY</code></li>
+          <li><strong>Time:</strong> <code>HH:MM</code></li>
+          <li><strong>IPv4:</strong> <code>0-255</code> octets</li>
+          <li><strong>ERROR:</strong> <code>\bERROR\b</code></li>
+          <li><strong>WARNING:</strong> <code>\bWARNING\b</code></li>
+        </ul>
+
+        <h4>Equivalence Guarantee:</h4>
+        <p>Both implementations produce identical 7 matches on <code>sample.log</code> with zero coordinate drift.</p>
+      </div>
+    </aside>
+    <div id="drawer-backdrop" class="drawer-backdrop hidden"></div>
+
+    <!-- Footer Info -->
+    <footer class="app-footer" role="contentinfo">
+      <p>
+        5th Semester B.E. Computer Science & Engineering | Theory of Computations (24CS52) | SET-E Case Study
+      </p>
+      <p class="footer-sub">
+        Powered by Python 3.13 backend invoking <code>src/re_analyzer.py</code> and <code>src/dfa_analyzer.py</code>.
+      </p>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

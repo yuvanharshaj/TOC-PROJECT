@@ -1,0 +1,7 @@
+# TOC SET-E Case Study: Log File Analysis Using Regular Expressions and DFA
+# Core implementation utilizes Python 3 standard library (re, time, sys, pathlib, unittest).
+pytest>=8.0.0
+flask>=3.0.0
+gunicorn>=21.2.0; sys_platform != "win32"
+
+
